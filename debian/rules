@@ -1,0 +1,47 @@
+#!/usr/bin/make -f
+# debian/rules file for libjaxp1.3-java (uses cdbs)
+
+include /usr/share/cdbs/1/rules/debhelper.mk
+include /usr/share/cdbs/1/class/javahelper.mk
+
+PACKAGE              := $(DEB_SOURCE_PACKAGE)
+VERSION              := $(DEB_UPSTREAM_VERSION)
+JAXP_VERSION         := 1.3
+JAVA_HOME            := /usr/lib/jvm/default-java
+
+include /usr/share/gcj/debian_defaults
+ifneq (,$(filter $(DEB_HOST_ARCH), $(gcj_native_archs)))
+  with_gcj_native := yes
+endif
+
+clean::
+	rm -rf build debian/build-stamp
+	-rm -rf debian/tmp
+
+build/libjaxp1.3-java:: debian/build-stamp
+debian/build-stamp:
+	mkdir -p build/license
+
+	# An alternative would be to build the classes using GCJ
+	$(JAVA_HOME)/bin/javac -source 1.4 -d build `find javax org -name \*.java`
+	cp LICENSE.*.txt README.*.txt build/license
+	cd build && $(JAVA_HOME)/bin/jar cmf ../manifest.commons \
+		jaxp-1.3.jar javax license org
+	touch debian/build-stamp
+
+install/libjaxp1.3-java::
+	mh_installpoms -p$(PACKAGE);
+	mh_installjar -p$(PACKAGE) -l debian/xml-apis.pom build/jaxp-$(JAXP_VERSION).jar
+	mh_installjar -p$(PACKAGE) debian/jaxp.pom build/jaxp-$(JAXP_VERSION).jar /usr/share/java/jaxp-$(JAXP_VERSION).jar
+
+ifeq ($(with_gcj_native),yes)
+install/libjaxp1.3-java-gcj:: install/libjaxp1.3-java
+	dh_nativejava -plibjaxp1.3-java-gcj
+endif
+
+get-orig-pom:
+	wget -O debian/xml-apis.pom http://repository.sonatype.org/service/local/repositories/central/content/xml-apis/xml-apis/$(VERSION)/xml-apis-$(VERSION).pom
+	wget -O debian/jaxp.pom http://repository.sonatype.org/service/local/repositories/central/content/javax/xml/jaxp-api/$(JAXP_VERSION)/jaxp-api-$(JAXP_VERSION).pom
+
+get-orig-source:
+	-uscan --download-version $(DEB_UPSTREAM_VERSION) --force-download --rename
